@@ -7,6 +7,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,11 +20,24 @@ import com.example.manejogpsbasico.R;
 
 import java.util.List;
 
+// NUEVO
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.graphics.Color;
+
 public class MainActivity extends AppCompatActivity implements LocationListener {
 
     private TextView txtEstadoGPS, txtLatitud, txtLongitud, txtAltitud, txtVelocidad;
     private LocationManager locationManager;
     private static final int REQUEST_CODE_GPS_PERMISSION = 100;
+
+    // NUEVO
+    private SensorManager sensorManager;
+    private Sensor lightSensor;
+    private float luzActual = 0;
+    private View layoutPrincipal; // Para poner la pantalla roja si te quemas
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +49,15 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         txtLongitud = findViewById(R.id.txtLongitud);
         txtAltitud = findViewById(R.id.txtAltitud);
         txtVelocidad = findViewById(R.id.txtVelocidad);
+
+        // NUEVO
+        layoutPrincipal = findViewById(R.id.layoutMain);
+
+        //NUEVO
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        }
 
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
@@ -91,6 +114,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         super.onPause();
         // Detenemos las actualizaciones para ahorrar batería cuando la app no está visible
         locationManager.removeUpdates(this);
+
+        // NUEVO
+        sensorManager.unregisterListener(lightEventListener);
     }
 
     @Override
@@ -98,6 +124,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         super.onResume();
         // Reanudamos las actualizaciones si tenemos los permisos
         verificarPermisos();
+
+        // NUEVO
+        if (lightSensor != null) {
+            sensorManager.registerListener(lightEventListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        }
     }
 
 
@@ -115,6 +146,21 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
         // Convertimos la velocidad a km/h
         float velocidadKmh = velocidad * 3.6f;
+
+        // NUEVO
+        if (velocidadKmh > 2.0 && luzActual > 2000) { // CAMBIAR PARA MODO DEMO
+            txtEstadoGPS.setText("¡TE ESTÁS QUEMANDO! 🔥 BUSCA SOMBRA");
+            txtEstadoGPS.setTextColor(Color.RED);
+            // layoutPrincipal.setBackgroundColor(Color.parseColor("#FFDDDD")); // Efecto visual
+        } else if (velocidadKmh > 2.0) {    // CAMBIAR PARA MODO DEMO
+            txtEstadoGPS.setText("Corriendo seguro en las sombras... 🥷");
+            txtEstadoGPS.setTextColor(Color.GREEN);
+            // layoutPrincipal.setBackgroundColor(Color.BLACK);
+        } else {
+            txtEstadoGPS.setText("Parado. A salvo.");
+            txtEstadoGPS.setTextColor(Color.BLACK);
+            // layoutPrincipal.setBackgroundColor(Color.WHITE);
+        }
 
         txtLatitud.setText(String.format("Latitud: %.6f", latitud));
         txtLongitud.setText(String.format("Longitud: %.6f", longitud));
@@ -140,4 +186,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
     public void onLocationChanged(@NonNull List<Location> locations) {
         LocationListener.super.onLocationChanged(locations);
     }
+
+    // NUEVO
+    private final SensorEventListener lightEventListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            luzActual = event.values[0]; // Guardamos la luz actual
+            // Actualizamos la interfaz para que se vea
+            // Puedes reutilizar uno de los TextViews que no uses, o concatenarlo en "Estado"
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    };
 }
